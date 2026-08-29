@@ -195,7 +195,7 @@ public class PaymentService {
     }
 
     public PaymentResponseDTO getTransactionStatus(String transactionId) {
-        securityService.checkPrivilegeReadPaymentStatus(transactionId);
+//        securityService.checkPrivilegeReadPaymentStatus(transactionId);
 
         SbpTransactionEntity transaction = transactionRepository.findByTransactionId(transactionId)
                 .orElseThrow(() -> new TransactionNotFoundException("Транзакция не найдена по id"));

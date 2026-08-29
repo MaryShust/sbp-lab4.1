@@ -105,6 +105,9 @@ public class SecurityService {
     public void checkPrivilegeReadPaymentStatus(String transactionId) {
         CustomUserDetails user = getCurrentUser();
 
+        log.info("TEST SS: {}", user.getPrivileges());
+        log.info("TEST SS: {}", user.getAccountId());
+
         if (user != null && user.hasPrivilege(Privilege.PAYMENT_SUPER_READ_STATUS)) {
             return;
         }
