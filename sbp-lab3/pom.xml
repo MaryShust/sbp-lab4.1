@@ -135,6 +135,13 @@
 			</exclusions>
 		</dependency>
 
+<!--		<dependency>-->
+<!--			<groupId>org.camunda.bpm.springboot</groupId>-->
+<!--			<artifactId>camunda-bpm-spring-boot-starter-security</artifactId>-->
+<!--			&lt;!&ndash; Версия должна соответствовать вашей версии Camunda &ndash;&gt;-->
+<!--			<version>7.24.0</version>-->
+<!--		</dependency>-->
+
 		<!-- Для работы с REST используем Spring Web -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

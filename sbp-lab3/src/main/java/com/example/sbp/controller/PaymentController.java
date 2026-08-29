@@ -2,6 +2,7 @@ package com.example.sbp.controller;
 
 import com.example.sbp.dto.PaymentRequestDTO;
 import com.example.sbp.dto.PaymentResponseDTO;
+import com.example.sbp.exception.AccessDeniedException;
 import com.example.sbp.listener.PaymentStatusListener;
 import com.example.sbp.security.SecurityService;
 import com.example.sbp.service.PaymentService;
@@ -21,6 +22,8 @@ import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -82,16 +85,14 @@ public class PaymentController {
     ) {
         log.info("TEST: {}", transactionId);
 
-        securityService.checkPrivilegeReadPaymentStatus(transactionId);
-
         // Подготовка переменных
         Map<String, Object> variables = new HashMap<>();
+        variables.putAll(securityService.getAuthVariables());
         variables.put("transactionId", transactionId);
 
         // Запуск процесса
         ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
                 "payment-status-process", variables);
-
 
         String processInstanceId = processInstance.getId();
         log.info("TEST C: {}", processInstanceId);
@@ -105,20 +106,19 @@ public class PaymentController {
         Boolean success = (Boolean) resultVariables.getOrDefault("success", false);
         if (!success) {
             String error = (String) resultVariables.get("error");
-            throw new RuntimeException(error != null ? error : "Transaction processing failed");
+            throw new AccessDeniedException(error != null ? error : "Трунь");
         }
 
-        // Если процесс завершился, переменные будут доступны
         PaymentResponseDTO response = new PaymentResponseDTO();
         response.setTransactionId(transactionId);
         response.setStatus((String) resultVariables.get("status"));
         response.setSenderBillId((Long) resultVariables.get("senderBillId"));
         response.setReceiverBillId((Long) resultVariables.get("receiverBillId"));
-        response.setAmount((java.math.BigDecimal) resultVariables.get("amount"));
-        response.setCommission((java.math.BigDecimal) resultVariables.get("commission"));
+        response.setAmount((BigDecimal) resultVariables.get("amount"));
+        response.setCommission((BigDecimal) resultVariables.get("commission"));
         response.setMessage((String) resultVariables.get("message"));
-        response.setCreatedAt((java.time.LocalDateTime) resultVariables.get("createdAt"));
-        response.setCompletedAt((java.time.LocalDateTime) resultVariables.get("completedAt"));
+        response.setCreatedAt((LocalDateTime) resultVariables.get("createdAt"));
+        response.setCompletedAt((LocalDateTime) resultVariables.get("completedAt"));
 
         return ResponseEntity.ok(response);
     }

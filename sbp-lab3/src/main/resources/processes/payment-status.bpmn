@@ -3,33 +3,157 @@
                   xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
                   xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
                   xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
                   targetNamespace="http://bpmn.io/schema/bpmn">
 
   <bpmn:process id="payment-status-process" isExecutable="true" camunda:historyTimeToLive="30">
     <bpmn:startEvent id="StartEvent_1">
-      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Start_CheckPrivilege</bpmn:outgoing>
     </bpmn:startEvent>
 
-    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Activity_GetStatus" />
+    <bpmn:sequenceFlow id="Flow_Start_CheckPrivilege"
+                       sourceRef="StartEvent_1"
+                       targetRef="Activity_CheckPrivilege" />
 
+    <!-- Проверка привилегий -->
+    <bpmn:serviceTask id="Activity_CheckPrivilege"
+                      name="Check Payment Status Privilege"
+                      camunda:class="com.example.sbp.delegate.CheckPrivilegeReadPaymentStatusDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_Start_CheckPrivilege</bpmn:incoming>
+      <bpmn:outgoing>Flow_Check_GetStatus</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Check_GetStatus"
+                       sourceRef="Activity_CheckPrivilege"
+                       targetRef="Gateway_CheckPrivilege" />
+
+    <!-- Гейтвей для проверки результата -->
+    <bpmn:exclusiveGateway id="Gateway_CheckPrivilege"
+                           name="Has Privilege?">
+      <bpmn:incoming>Flow_Check_GetStatus</bpmn:incoming>
+      <bpmn:outgoing>Flow_Privilege_Yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Privilege_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Ветка: привилегия есть -->
+    <bpmn:sequenceFlow id="Flow_Privilege_Yes"
+                       sourceRef="Gateway_CheckPrivilege"
+                       targetRef="Activity_GetStatus">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${hasPrivilege == true}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <!-- Ветка: привилегии нет -->
+    <bpmn:sequenceFlow id="Flow_Privilege_No"
+                       sourceRef="Gateway_CheckPrivilege"
+                       targetRef="Activity_AccessDenied">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${hasPrivilege == false}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <!-- Получение статуса -->
     <bpmn:serviceTask id="Activity_GetStatus"
                       name="Get Transaction Status"
                       camunda:class="com.example.sbp.delegate.GetTransactionStatusDelegate"
                       camunda:asyncBefore="true"
                       camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_Privilege_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_Status_Success</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Status_Success"
+                       sourceRef="Activity_GetStatus"
+                       targetRef="EndEvent_Success" />
+
+    <!-- Обработка отказа в доступе -->
+    <bpmn:serviceTask id="Activity_AccessDenied"
+                      name="Access Denied"
+                      camunda:class="com.example.sbp.delegate.AccessDeniedDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_Privilege_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_Denied_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Denied_End"
+                       sourceRef="Activity_AccessDenied"
+                       targetRef="EndEvent_AccessDenied" />
+
+    <!-- Конечные события с listener -->
+    <bpmn:endEvent id="EndEvent_Success">
       <bpmn:extensionElements>
         <camunda:executionListener event="end"
                                    class="com.example.sbp.listener.PaymentStatusListener" />
       </bpmn:extensionElements>
-      <bpmn:incoming>Flow_1</bpmn:incoming>
-      <bpmn:outgoing>Flow_2</bpmn:outgoing>
-    </bpmn:serviceTask>
+      <bpmn:incoming>Flow_Status_Success</bpmn:incoming>
+    </bpmn:endEvent>
 
-    <bpmn:sequenceFlow id="Flow_2" sourceRef="Activity_GetStatus" targetRef="EndEvent_1" />
-
-    <bpmn:endEvent id="EndEvent_1">
-      <bpmn:incoming>Flow_2</bpmn:incoming>
+    <bpmn:endEvent id="EndEvent_AccessDenied">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="end"
+                                   class="com.example.sbp.listener.PaymentStatusListener" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Denied_End</bpmn:incoming>
     </bpmn:endEvent>
 
   </bpmn:process>
+
+  <!-- BPMN Diagram -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="payment-status-process">
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="152" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_CheckPrivilege_di" bpmnElement="Activity_CheckPrivilege">
+        <dc:Bounds x="240" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_CheckPrivilege_di" bpmnElement="Gateway_CheckPrivilege">
+        <dc:Bounds x="395" y="95" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_GetStatus_di" bpmnElement="Activity_GetStatus">
+        <dc:Bounds x="510" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_AccessDenied_di" bpmnElement="Activity_AccessDenied">
+        <dc:Bounds x="510" y="200" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Success_di" bpmnElement="EndEvent_Success">
+        <dc:Bounds x="662" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_AccessDenied_di" bpmnElement="EndEvent_AccessDenied">
+        <dc:Bounds x="662" y="222" width="36" height="36" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Flow_Start_CheckPrivilege_di" bpmnElement="Flow_Start_CheckPrivilege">
+        <di:waypoint x="188" y="120" />
+        <di:waypoint x="240" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Check_GetStatus_di" bpmnElement="Flow_Check_GetStatus">
+        <di:waypoint x="340" y="120" />
+        <di:waypoint x="395" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Privilege_Yes_di" bpmnElement="Flow_Privilege_Yes">
+        <di:waypoint x="445" y="120" />
+        <di:waypoint x="510" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Privilege_No_di" bpmnElement="Flow_Privilege_No">
+        <di:waypoint x="420" y="145" />
+        <di:waypoint x="420" y="240" />
+        <di:waypoint x="510" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Status_Success_di" bpmnElement="Flow_Status_Success">
+        <di:waypoint x="610" y="120" />
+        <di:waypoint x="662" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Denied_End_di" bpmnElement="Flow_Denied_End">
+        <di:waypoint x="610" y="240" />
+        <di:waypoint x="662" y="240" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
 </bpmn:definitions>
