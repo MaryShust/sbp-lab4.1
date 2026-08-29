@@ -18,20 +18,14 @@ public class CheckPrivilegeReadPaymentStatusDelegate implements JavaDelegate {
 
     @Override
     public void execute(DelegateExecution execution) {
-        log.info("TEST ВВВВ");
-
         String transactionId = (String) execution.getVariable("transactionId");
         String userName = (String) execution.getVariable("userName");
         Long accountId = (Long) execution.getVariable("accountId");
 
         Set<Privilege> privileges = (Set<Privilege>) execution.getVariable("privileges");
 
-        log.info("TEST =" + transactionId);
-        log.info("TEST =" + privileges);
-
         if (userName != null && privileges.contains(Privilege.PAYMENT_SUPER_READ_STATUS)) {
             execution.setVariable("hasPrivilege", true);
-            log.info("TEST = 1");
             return;
         }
 
@@ -40,11 +34,9 @@ public class CheckPrivilegeReadPaymentStatusDelegate implements JavaDelegate {
                 securityService.isTransactionRelatedToCurrentUser(transactionId, userName, accountId)
         ) {
             execution.setVariable("hasPrivilege", true);
-            log.info("TEST = 2");
             return;
         }
 
-        log.info("TEST = 3");
         execution.setVariable("hasPrivilege", false);
     }
 }

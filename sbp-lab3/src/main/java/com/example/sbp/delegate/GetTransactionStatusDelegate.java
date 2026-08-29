@@ -1,6 +1,7 @@
 package com.example.sbp.delegate;
 
 import com.example.sbp.dto.PaymentResponseDTO;
+import com.example.sbp.exception.TransactionNotFoundException;
 import com.example.sbp.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +19,6 @@ public class GetTransactionStatusDelegate implements JavaDelegate {
     @Override
     public void execute(DelegateExecution execution) throws Exception {
         String transactionId = (String) execution.getVariable("transactionId");
-        log.info("TEST D: {}", transactionId);
 
         try {
             PaymentResponseDTO response = paymentService.getTransactionStatus(transactionId);
@@ -31,11 +31,9 @@ public class GetTransactionStatusDelegate implements JavaDelegate {
             execution.setVariable("createdAt", response.getCreatedAt());
             execution.setVariable("completedAt", response.getCompletedAt());
             execution.setVariable("success", true);
-        } catch (Exception e) {
-            log.error("TEST D2: {}", e.getMessage());
+        } catch (TransactionNotFoundException e) {
             execution.setVariable("error", e.getMessage());
             execution.setVariable("success", false);
-            throw e;
         }
     }
 }

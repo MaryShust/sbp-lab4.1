@@ -28,7 +28,6 @@ public class PaymentStatusListener implements ExecutionListener {
         if (future != null) {
             Map<String, Object> variables = execution.getVariables();
             future.complete(variables);
-            log.info("Future completed for process: {}", processInstanceId);
         }
     }
 }

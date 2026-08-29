@@ -83,8 +83,6 @@ public class PaymentController {
             @Parameter(description = "ID транзакции", example = "SBP1234567890_123")
             @PathVariable String transactionId
     ) {
-        log.info("TEST: {}", transactionId);
-
         // Подготовка переменных
         Map<String, Object> variables = new HashMap<>();
         variables.putAll(securityService.getAuthVariables());
@@ -95,7 +93,6 @@ public class PaymentController {
                 "payment-status-process", variables);
 
         String processInstanceId = processInstance.getId();
-        log.info("TEST C: {}", processInstanceId);
 
         // Ждем результат через Execution Listener
         Map<String, Object> resultVariables = paymentStatusListener
