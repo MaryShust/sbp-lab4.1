@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jboss-deployment-structure>
+    <deployment>
+        <exclude-subsystems>
+            <subsystem name="logging"/>
+            <subsystem name="bean-validation"/>
+        </exclude-subsystems>
+        <exclusions>
+            <module name="org.slf4j"/>
+            <module name="org.slf4j.impl"/>
+            <module name="org.jboss.logging"/>
+            <module name="org.apache.commons.logging"/>
+            <module name="jakarta.validation"/>
+            <module name="org.hibernate.validator"/>
+            <module name="org.hibernate.validator.cdi"/>
+            <module name="org.glassfish.jakarta.el"/>
+        </exclusions>
+        <dependencies>
+            <module name="org.postgresql" slot="main"/>
+        </dependencies>
+    </deployment>
+</jboss-deployment-structure>

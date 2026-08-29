@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><users>
+    <user accountId="1" password="{bcrypt}$2a$10$HZo7FkK.2emlQpsg5w1ck.FRUYuNty0QyjW.4MSPdXDtgxWKFNhZi" phoneNumber="79123456789" roles="ADMIN" tokenVersion="1" username="admin"/>
+
+    <user accountId="" password="{bcrypt}$2a$10$FCg9e1rqBbn3qi8JnT6RsOUskdVomKPO/EH4RfD1gpLoBvN/lsi96" phoneNumber="79123456788" roles="MANAGER" tokenVersion="1" username="manager"/>
+</users>

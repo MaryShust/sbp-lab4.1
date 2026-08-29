@@ -1,0 +1,157 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2024-01-15T12:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v8.6.0",
+  "resources": [
+    {
+      "_id": "wrk_sbp_payments",
+      "_type": "workspace",
+      "created": "2024-01-15T11:00:00.000Z",
+      "description": "SBP Payments API тестирование",
+      "name": "SBP Payments API",
+      "parentId": null,
+      "scope": "collection"
+    },
+    {
+      "_id": "env_development",
+      "_type": "environment",
+      "created": "2024-01-15T11:00:00.000Z",
+      "data": {
+        "base_url": "http://localhost:8084",
+        "account_number": "11112222333344445555",
+        "phone_number": "79111111111",
+        "payment_id": "SBP1770450637990738"
+      },
+      "dataPropertyOrder": {
+        "&": ["base_url", "account_number", "phone_number", "payment_id"]
+      },
+      "name": "Development",
+      "parentId": "wrk_sbp_payments",
+      "private": false
+    },
+    {
+      "_id": "req_health_check",
+      "_type": "request",
+      "authentication": {},
+      "body": {},
+      "created": "2024-01-15T11:05:00.000Z",
+      "description": "Проверка работоспособности сервиса",
+      "headers": [],
+      "metaSortKey": -1612876635520.0,
+      "method": "GET",
+      "modified": "2024-01-15T11:05:00.000Z",
+      "name": "01. Health Check",
+      "parameters": [],
+      "parentId": "wrk_sbp_payments",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "http://localhost:8084/api/v1/payments/health"
+    },
+    {
+      "_id": "req_create_account",
+      "_type": "request",
+      "authentication": {},
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"accountNumber\": \"{{ account_number }}\",\n  \"phoneNumber\": \"{{ phone_number }}\",\n  \"ownerName\": \"Chase Miller\",\n  \"initialBalance\": 50000000.00,\n  \"bankBic\": \"044525555\"\n}"
+      },
+      "created": "2024-01-15T11:10:00.000Z",
+      "description": "Создание нового банковского счета",
+      "headers": [
+        {
+          "id": "pair_1",
+          "name": "Content-Type",
+          "value": "application/json; charset=UTF-8"
+        }
+      ],
+      "metaSortKey": -1612876635519.0,
+      "method": "POST",
+      "modified": "2024-01-15T11:10:00.000Z",
+      "name": "02. Создать счет",
+      "parameters": [],
+      "parentId": "wrk_sbp_payments",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "http://localhost:8084/api/v1/accounts"
+    },
+    {
+      "_id": "req_get_balance",
+      "_type": "request",
+      "authentication": {},
+      "body": {},
+      "created": "2024-01-15T11:15:00.000Z",
+      "description": "Получение баланса счета",
+      "headers": [],
+      "metaSortKey": -1612876635518.0,
+      "method": "GET",
+      "modified": "2024-01-15T11:15:00.000Z",
+      "name": "03. Получить баланс счета",
+      "parameters": [],
+      "parentId": "wrk_sbp_payments",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "http://localhost:8084/api/v1/accounts/{{ account_number }}/balance"
+    },
+    {
+      "_id": "req_sbp_payment",
+      "_type": "request",
+      "authentication": {},
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"senderAccount\": \"{{ account_number }}\",\n  \"receiverIdentifier\": \"{{ phone_number }}\",\n  \"amount\": 1000.00,\n  \"message\": \"Payment for services\"\n}"
+      },
+      "created": "2024-01-15T11:20:00.000Z",
+      "description": "Выполнение платежа через СБП",
+      "headers": [
+        {
+          "id": "pair_1",
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": -1612876635517.0,
+      "method": "POST",
+      "modified": "2024-01-15T11:20:00.000Z",
+      "name": "04. СБП платеж",
+      "parameters": [],
+      "parentId": "wrk_sbp_payments",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "http://localhost:8084/api/v1/payments/sbp"
+    },
+    {
+      "_id": "req_payment_status",
+      "_type": "request",
+      "authentication": {},
+      "body": {},
+      "created": "2024-01-15T11:25:00.000Z",
+      "description": "Получение статуса платежа",
+      "headers": [],
+      "metaSortKey": -1612876635516.0,
+      "method": "GET",
+      "modified": "2024-01-15T11:25:00.000Z",
+      "name": "05. Статус платежа",
+      "parameters": [],
+      "parentId": "wrk_sbp_payments",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "http://localhost:8084/api/v1/accounts"
+    }
+  ]
+}
