@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <bpmn:process id="get-bill-process" isExecutable="true" camunda:historyTimeToLive="30">
+    <bpmn:startEvent id="StartEvent_1">
+      <bpmn:outgoing>Flow_Start_CheckPrivilege</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:sequenceFlow id="Flow_Start_CheckPrivilege"
+                       sourceRef="StartEvent_1"
+                       targetRef="Activity_CheckPrivilege" />
+
+    <!-- Проверка привилегий -->
+    <bpmn:serviceTask id="Activity_CheckPrivilege"
+                      name="Check Bill Read Privilege"
+                      camunda:class="com.example.sbp.delegate.CheckPrivilegeReadBillDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_Start_CheckPrivilege</bpmn:incoming>
+      <bpmn:outgoing>Flow_Check_GetBill</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Check_GetBill"
+                       sourceRef="Activity_CheckPrivilege"
+                       targetRef="Gateway_CheckPrivilege" />
+
+    <!-- Гейтвей для проверки результата -->
+    <bpmn:exclusiveGateway id="Gateway_CheckPrivilege"
+                           name="Has Privilege?">
+      <bpmn:incoming>Flow_Check_GetBill</bpmn:incoming>
+      <bpmn:outgoing>Flow_Privilege_Yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Privilege_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Ветка: привилегия есть -->
+    <bpmn:sequenceFlow id="Flow_Privilege_Yes"
+                       sourceRef="Gateway_CheckPrivilege"
+                       targetRef="Activity_GetBill">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${hasPrivilege == true}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <!-- Ветка: привилегии нет -->
+    <bpmn:sequenceFlow id="Flow_Privilege_No"
+                       sourceRef="Gateway_CheckPrivilege"
+                       targetRef="Activity_AccessDenied">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${hasPrivilege == false}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <!-- Получение счета -->
+    <bpmn:serviceTask id="Activity_GetBill"
+                      name="Get Bill Details"
+                      camunda:class="com.example.sbp.delegate.GetBillDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_Privilege_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_Bill_Success</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Bill_Success"
+                       sourceRef="Activity_GetBill"
+                       targetRef="EndEvent_Success" />
+
+    <!-- Обработка отказа в доступе -->
+    <bpmn:serviceTask id="Activity_AccessDenied"
+                      name="Access Denied"
+                      camunda:class="com.example.sbp.delegate.AccessDeniedDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_Privilege_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_Denied_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Denied_End"
+                       sourceRef="Activity_AccessDenied"
+                       targetRef="EndEvent_AccessDenied" />
+
+    <!-- Конечные события -->
+    <bpmn:endEvent id="EndEvent_Success">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="end"
+                                   class="com.example.sbp.listener.BillStatusListener" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Bill_Success</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="EndEvent_AccessDenied">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="end"
+                                   class="com.example.sbp.listener.BillStatusListener" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Denied_End</bpmn:incoming>
+    </bpmn:endEvent>
+
+  </bpmn:process>
+</bpmn:definitions>

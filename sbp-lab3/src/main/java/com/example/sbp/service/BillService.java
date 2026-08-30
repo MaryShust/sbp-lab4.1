@@ -44,8 +44,6 @@ public class BillService {
     }
 
     public BillResponseDTO getBillById(Long id) {
-        securityService.checkPrivilegeReadBill(id);
-
         BillEntity billEntity = billRepository.findById(id)
                 .orElseThrow(() -> new BillNotFoundException("Счет не найден по id: " + id));
         return mapToResponseDTO(billEntity);

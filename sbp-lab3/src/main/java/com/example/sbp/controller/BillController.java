@@ -2,6 +2,9 @@ package com.example.sbp.controller;
 
 import com.example.sbp.dto.BillCreateRequestDTO;
 import com.example.sbp.dto.BillResponseDTO;
+import com.example.sbp.exception.AccessDeniedException;
+import com.example.sbp.listener.BillStatusListener;
+import com.example.sbp.security.SecurityService;
 import com.example.sbp.service.BillService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,19 +16,29 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import org.camunda.bpm.engine.RuntimeService;
+import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api/v1/bills")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Bills", description = "Управление счетами (Bill)")
 public class BillController {
 
     private final BillService billService;
+    private final SecurityService securityService;
+    private final RuntimeService runtimeService;
+    private final BillStatusListener billStatusListener;
 
     @PostMapping
     @Operation(
@@ -55,6 +68,7 @@ public class BillController {
         return ResponseEntity.ok(result);
     }
 
+    @SneakyThrows
     @GetMapping("/{id}")
     @Operation(
             summary = "Получить счет по ID",
@@ -68,7 +82,39 @@ public class BillController {
     public ResponseEntity<?> getBillById(
             @Parameter(description = "ID счета", example = "1")
             @PathVariable Long id) {
-        BillResponseDTO response = billService.getBillById(id);
+
+        // Подготовка переменных для Camunda процесса
+        Map<String, Object> variables = new HashMap<>();
+        variables.putAll(securityService.getAuthVariables());
+        variables.put("billId", id);
+
+        // Запуск Camunda процесса
+        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
+                "get-bill-process", variables);
+
+        String processInstanceId = processInstance.getId();
+
+        // Ожидание результата через Execution Listener
+        Map<String, Object> resultVariables = billStatusListener
+                .waitForResult(processInstanceId)
+                .get(30, TimeUnit.SECONDS);
+
+        // Проверка успешности выполнения
+        Boolean success = (Boolean) resultVariables.getOrDefault("success", false);
+        if (!success) {
+            String error = (String) resultVariables.get("error");
+            throw new AccessDeniedException(error != null ? error : "Доступ запрещен");
+        }
+
+        // Формирование ответа из переменных процесса
+        BillResponseDTO response = new BillResponseDTO();
+        response.setId((Long) resultVariables.get("billId"));
+        response.setAccountId((Long) resultVariables.get("accountId"));
+        response.setBalance((BigDecimal) resultVariables.get("balance"));
+        response.setIsActive((Boolean) resultVariables.get("isActive"));
+        response.setCreatedAt((LocalDateTime) resultVariables.get("createdAt"));
+        response.setUpdatedAt((LocalDateTime) resultVariables.get("updatedAt"));
+
         return ResponseEntity.ok(response);
     }
 
