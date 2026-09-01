@@ -3,6 +3,7 @@ package com.example.sbp.controller;
 import com.example.sbp.dto.PaymentRequestDTO;
 import com.example.sbp.dto.PaymentResponseDTO;
 import com.example.sbp.exception.AccessDeniedException;
+import com.example.sbp.listener.PaymentListener;
 import com.example.sbp.listener.PaymentStatusListener;
 import com.example.sbp.security.SecurityService;
 import com.example.sbp.service.PaymentService;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.engine.RuntimeService;
+import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +29,8 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.camunda.bpm.engine.HistoryService;
+import org.camunda.bpm.engine.delegate.BpmnError;
 
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -37,8 +41,8 @@ public class PaymentController {
 
     private final SecurityService securityService;
     private final RuntimeService runtimeService;
-    private final PaymentService paymentService;
     private final PaymentStatusListener paymentStatusListener;
+    private final PaymentListener paymentListener;
 
     @PostMapping("/sbp")
     @Operation(
@@ -64,8 +68,43 @@ public class PaymentController {
                                     """)))
     })
     public ResponseEntity<?> processSbpPayment(@Valid @RequestBody PaymentRequestDTO request) {
-        PaymentResponseDTO response = paymentService.processPayment(request);
-        return ResponseEntity.ok(response);
+        // Подготовка переменных
+        Map<String, Object> variables = new HashMap<>();
+        variables.putAll(securityService.getAuthVariables());
+        variables.put("senderBillId", request.getSenderBillId());
+        variables.put("receiverIdentifier", request.getReceiverIdentifier());
+        variables.put("amount", request.getAmount());
+        variables.put("message", request.getMessage());
+
+        log.info("TEST 1");
+        // Запуск процесса
+        try {
+
+
+            ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
+                    "payment-process", variables);
+
+            String processInstanceId = processInstance.getId();
+
+            log.info("TEST 2");
+            // Ждем результат через Execution Listener
+            Map<String, Object> resultVariables = paymentListener
+                    .waitForResult(processInstanceId)
+                    .get(30, TimeUnit.SECONDS);
+
+            log.info("TEST 3");
+            PaymentResponseDTO response = buildResponse((String) variables.get("transactionId"), resultVariables);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.info("TEST + " + e.getMessage());
+            log.info("TEST + " + (e.getCause() instanceof BpmnError));
+            if (e.getCause() instanceof BpmnError) {
+                BpmnError bpmnError = (BpmnError) e.getCause();
+                throw bpmnError;
+            }
+            throw new RuntimeException("Ошибка выполнения процесса", e);
+        }
     }
 
     @SneakyThrows
@@ -88,36 +127,50 @@ public class PaymentController {
         variables.putAll(securityService.getAuthVariables());
         variables.put("transactionId", transactionId);
 
+        log.info("TEST 1");
         // Запуск процесса
-        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
-                "payment-status-process", variables);
+        try {
 
-        String processInstanceId = processInstance.getId();
 
-        // Ждем результат через Execution Listener
-        Map<String, Object> resultVariables = paymentStatusListener
-                .waitForResult(processInstanceId)
-                .get(30, TimeUnit.SECONDS);
+            ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
+                    "payment-status-process", variables);
 
-        // Проверка успешности
-        Boolean success = (Boolean) resultVariables.getOrDefault("success", false);
-        if (!success) {
-            String error = (String) resultVariables.get("error");
-            throw new AccessDeniedException(error != null ? error : "Трунь");
+            String processInstanceId = processInstance.getId();
+
+            log.info("TEST 2");
+            // Ждем результат через Execution Listener
+            Map<String, Object> resultVariables = paymentStatusListener
+                    .waitForResult(processInstanceId)
+                    .get(60, TimeUnit.SECONDS);
+
+            log.info("TEST 3");
+            PaymentResponseDTO response = buildResponse(transactionId, resultVariables);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.info("TEST + " + e.getMessage());
+            log.info("TEST + " + (e.getCause() instanceof BpmnError));
+            if (e.getCause() instanceof BpmnError) {
+                BpmnError bpmnError = (BpmnError) e.getCause();
+                throw bpmnError;
+            }
+            throw new RuntimeException("Ошибка выполнения процесса", e);
         }
+    }
 
+
+    private PaymentResponseDTO buildResponse(String transactionId, Map<String, Object> variables) {
         PaymentResponseDTO response = new PaymentResponseDTO();
         response.setTransactionId(transactionId);
-        response.setStatus((String) resultVariables.get("status"));
-        response.setSenderBillId((Long) resultVariables.get("senderBillId"));
-        response.setReceiverBillId((Long) resultVariables.get("receiverBillId"));
-        response.setAmount((BigDecimal) resultVariables.get("amount"));
-        response.setCommission((BigDecimal) resultVariables.get("commission"));
-        response.setMessage((String) resultVariables.get("message"));
-        response.setCreatedAt((LocalDateTime) resultVariables.get("createdAt"));
-        response.setCompletedAt((LocalDateTime) resultVariables.get("completedAt"));
-
-        return ResponseEntity.ok(response);
+        response.setStatus((String) variables.get("status"));
+        response.setSenderBillId((Long) variables.get("senderBillId"));
+        response.setReceiverBillId((Long) variables.get("receiverBillId"));
+        response.setAmount((BigDecimal) variables.get("amount"));
+        response.setCommission((BigDecimal) variables.get("commission"));
+        response.setMessage((String) variables.get("message"));
+        response.setCreatedAt((LocalDateTime) variables.get("createdAt"));
+        response.setCompletedAt((LocalDateTime) variables.get("completedAt"));
+        return response;
     }
 
     @GetMapping("/health")

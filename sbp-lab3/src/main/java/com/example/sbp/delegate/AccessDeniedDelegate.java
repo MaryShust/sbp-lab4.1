@@ -11,6 +11,7 @@ public class AccessDeniedDelegate implements JavaDelegate {
 
     @Override
     public void execute(DelegateExecution execution) {
+        log.info("TEST 1");
         execution.setVariable("error", "Не достаточно прав");
         execution.setVariable("success", false);
     }

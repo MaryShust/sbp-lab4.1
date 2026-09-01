@@ -19,6 +19,7 @@ public class TransactionEventProducer {
     private String fraudCheckTopic;
 
     public void sendTransactionEvent(SbpTransactionEntity transaction) {
+        log.info("TEST K");
         FraudTransactionDTO message = FraudTransactionDTO.builder()
                 .transactionId(transaction.getTransactionId())
                 .senderBillId(transaction.getSenderBillId())
@@ -29,10 +30,12 @@ public class TransactionEventProducer {
                 .createdAt(transaction.getCreatedAt())
                 .build();
 
+        log.info("TEST K1" + fraudCheckTopic);
         kafkaTemplate.send(
                 fraudCheckTopic,
                 transaction.getTransactionId(),
                 message
         );
+        log.info("TEST K3");
     }
 }
