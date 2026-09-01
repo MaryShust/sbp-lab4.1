@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <bpmn:process id="payment-process" isExecutable="true" camunda:historyTimeToLive="30">
+
+    <bpmn:startEvent id="StartEvent_1">
+      <bpmn:outgoing>Flow_Start_To_CheckPrivilege</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:sequenceFlow id="Flow_Start_To_CheckPrivilege"
+                       sourceRef="StartEvent_1"
+                       targetRef="Activity_CheckPrivilege" />
+
+    <bpmn:serviceTask id="Activity_CheckPrivilege"
+                      name="Check Payment Status Privilege"
+                      camunda:class="com.example.sbp.delegate.CheckPrivilegePaymentDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_Start_To_CheckPrivilege</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckPrivilege_To_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_CheckPrivilege_To_Gateway"
+                       sourceRef="Activity_CheckPrivilege"
+                       targetRef="Gateway_AfterCheckPrivilege" />
+
+    <bpmn:exclusiveGateway id="Gateway_AfterCheckPrivilege" name="Успех?">
+      <bpmn:incoming>Flow_CheckPrivilege_To_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckPrivilege_Success</bpmn:outgoing>
+      <bpmn:outgoing>Flow_CheckPrivilege_Error</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:sequenceFlow id="Flow_CheckPrivilege_Success"
+                       sourceRef="Gateway_AfterCheckPrivilege"
+                       targetRef="Activity_CheckMessage">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${hasPrivilege == true}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow id="Flow_CheckPrivilege_Error"
+                       sourceRef="Gateway_AfterCheckPrivilege"
+                       targetRef="ErrorEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${hasPrivilege == false}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+
+
+    <bpmn:serviceTask id="Activity_CheckMessage"
+                      name="Get Transaction Status"
+                      camunda:class="com.example.sbp.delegate.CheckMessageDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_CheckPrivilege_Success</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckMessage_To_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_CheckMessage_To_Gateway"
+                       sourceRef="Activity_CheckMessage"
+                       targetRef="Gateway_AfterCheckMessage" />
+
+    <bpmn:exclusiveGateway id="Gateway_AfterCheckMessage" name="Успех?">
+      <bpmn:incoming>Flow_CheckMessage_To_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckMessage_Success</bpmn:outgoing>
+      <bpmn:outgoing>Flow_CheckMessage_Error</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:sequenceFlow id="Flow_CheckMessage_Success"
+                       sourceRef="Gateway_AfterCheckMessage"
+                       targetRef="Activity_CheckSender">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${isMessageCorrect == true}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow id="Flow_CheckMessage_Error"
+                       sourceRef="Gateway_AfterCheckMessage"
+                       targetRef="ErrorEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${isMessageCorrect == false}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+
+
+    <bpmn:serviceTask id="Activity_CheckSender"
+                      name="Get Transaction Status"
+                      camunda:class="com.example.sbp.delegate.CheckSenderDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_CheckMessage_Success</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckSender_To_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_CheckSender_To_Gateway"
+                       sourceRef="Activity_CheckSender"
+                       targetRef="Gateway_AfterCheckSender" />
+
+    <bpmn:exclusiveGateway id="Gateway_AfterCheckSender" name="Успех?">
+      <bpmn:incoming>Flow_CheckSender_To_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckSender_Success</bpmn:outgoing>
+      <bpmn:outgoing>Flow_CheckSender_Error</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:sequenceFlow id="Flow_CheckSender_Success"
+                       sourceRef="Gateway_AfterCheckSender"
+                       targetRef="Activity_CheckReceiver">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${isSenderCorrect == true}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow id="Flow_CheckSender_Error"
+                       sourceRef="Gateway_AfterCheckSender"
+                       targetRef="ErrorEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${isSenderCorrect == false}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+
+
+
+    <bpmn:serviceTask id="Activity_CheckReceiver"
+                      name="Get Transaction Status"
+                      camunda:class="com.example.sbp.delegate.CheckReceiverDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_CheckSender_Success</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckReceiver_To_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_CheckReceiver_To_Gateway"
+                       sourceRef="Activity_CheckReceiver"
+                       targetRef="Gateway_AfterCheckReceiver" />
+
+    <bpmn:exclusiveGateway id="Gateway_AfterCheckReceiver" name="Успех?">
+      <bpmn:incoming>Flow_CheckReceiver_To_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckReceiver_Success</bpmn:outgoing>
+      <bpmn:outgoing>Flow_CheckReceiver_Error</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:sequenceFlow id="Flow_CheckReceiver_Success"
+                       sourceRef="Gateway_AfterCheckReceiver"
+                       targetRef="Activity_CheckAmount">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${isReceiverCorrect == true}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow id="Flow_CheckReceiver_Error"
+                       sourceRef="Gateway_AfterCheckReceiver"
+                       targetRef="ErrorEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${isReceiverCorrect == false}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+
+
+
+
+    <bpmn:serviceTask id="Activity_CheckAmount"
+                      name="Get Transaction Status"
+                      camunda:class="com.example.sbp.delegate.CheckAmountDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_CheckReceiver_Success</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckAmount_To_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_CheckAmount_To_Gateway"
+                       sourceRef="Activity_CheckAmount"
+                       targetRef="Gateway_AfterCheckAmount" />
+
+    <bpmn:exclusiveGateway id="Gateway_AfterCheckAmount" name="Успех?">
+      <bpmn:incoming>Flow_CheckAmount_To_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckAmount_Success</bpmn:outgoing>
+      <bpmn:outgoing>Flow_CheckAmount_Error</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:sequenceFlow id="Flow_CheckAmount_Success"
+                       sourceRef="Gateway_AfterCheckAmount"
+                       targetRef="Activity_Payment">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${isAmountCorrect == true}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow id="Flow_CheckAmount_Error"
+                       sourceRef="Gateway_AfterCheckAmount"
+                       targetRef="ErrorEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${isAmountCorrect == false}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+
+    <bpmn:serviceTask id="Activity_Payment"
+                      name="Get Transaction Status"
+                      camunda:class="com.example.sbp.delegate.PaymentDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_CheckAmount_Success</bpmn:incoming>
+      <bpmn:outgoing>Flow_Payment_To_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Payment_To_Gateway"
+                       sourceRef="Activity_Payment"
+                       targetRef="Gateway_AfterPayment" />
+
+    <bpmn:exclusiveGateway id="Gateway_AfterPayment" name="Успех?">
+      <bpmn:incoming>Flow_Payment_To_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Payment_Success</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Payment_Error</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:sequenceFlow id="Flow_Payment_Success"
+                       sourceRef="Gateway_AfterPayment"
+                       targetRef="EndEvent_Success">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${isPaymentCorrect == true}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow id="Flow_Payment_Error"
+                       sourceRef="Gateway_AfterPayment"
+                       targetRef="ErrorEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${isPaymentCorrect == false}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+
+    <bpmn:endEvent id="EndEvent_Success">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="end"
+                                   class="com.example.sbp.listener.PaymentListener" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Payment</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="ErrorEndEvent">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="end"
+                                   class="com.example.sbp.listener.PaymentListener" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_CheckPrivilege_Error</bpmn:incoming>
+      <bpmn:incoming>Flow_GetStatus_Error</bpmn:incoming>
+      <bpmn:errorEventDefinition errorRef="ProcessError" />
+    </bpmn:endEvent>
+
+  </bpmn:process>
+
+  <bpmn:error id="ProcessError" errorCode="PROCESS_ERROR" />
+
+</bpmn:definitions>

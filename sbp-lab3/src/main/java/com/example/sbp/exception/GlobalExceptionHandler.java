@@ -1,5 +1,6 @@
 package com.example.sbp.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -11,8 +12,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import javax.security.auth.login.LoginException;
 import java.util.HashMap;
 import java.util.Map;
+import org.camunda.bpm.engine.delegate.BpmnError;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -96,5 +99,29 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleGeneralException(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Internal server error", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(BpmnError.class)
+    public ResponseEntity<Map<String, String>> handleBpmnError(BpmnError ex) {
+        log.info("TEST 1");
+        String errorCode = ex.getErrorCode();
+        String errorMessage = ex.getMessage();
+
+        log.info("TEST 2=" + errorCode);
+        HttpStatus status = switch (errorCode) {
+            case "ACCESS_DENIED" -> HttpStatus.FORBIDDEN;
+            case "TRANSACTION_NOT_FOUND", "NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "BAD_REQUEST" -> HttpStatus.BAD_REQUEST;
+            case "INACTIVE" -> HttpStatus.CONFLICT;
+            case "INSUFFICIENT" -> HttpStatus.PAYMENT_REQUIRED;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        log.info("TEST 3");
+
+        return ResponseEntity.status(status)
+                .body(Map.of(
+                        "error", errorMessage,
+                        "code", errorCode
+                ));
     }
 }

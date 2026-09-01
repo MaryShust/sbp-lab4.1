@@ -4,6 +4,7 @@ import com.example.sbp.security.Privilege;
 import com.example.sbp.security.SecurityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,7 @@ public class CheckPrivilegeReadPaymentStatusDelegate implements JavaDelegate {
 
     @Override
     public void execute(DelegateExecution execution) {
+        log.info("TEST 1");
         String transactionId = (String) execution.getVariable("transactionId");
         String userName = (String) execution.getVariable("userName");
         Long accountId = (Long) execution.getVariable("accountId");
@@ -26,6 +28,7 @@ public class CheckPrivilegeReadPaymentStatusDelegate implements JavaDelegate {
 
         if (userName != null && privileges.contains(Privilege.PAYMENT_SUPER_READ_STATUS)) {
             execution.setVariable("hasPrivilege", true);
+            log.info("TEST 2");
             return;
         }
 
@@ -33,10 +36,14 @@ public class CheckPrivilegeReadPaymentStatusDelegate implements JavaDelegate {
                 privileges.contains(Privilege.PAYMENT_READ_STATUS) &&
                 securityService.isTransactionRelatedToCurrentUser(transactionId, userName, accountId)
         ) {
+            log.info("TEST 3");
             execution.setVariable("hasPrivilege", true);
             return;
         }
 
+        log.info("TEST 4");
+        execution.setVariable("bpmnError", "ACCESS_DENIED");
+        execution.setVariable("bpmnErrorMessage", "Недостаточно прав для просмотра статуса транзакции");
         execution.setVariable("hasPrivilege", false);
     }
 }
