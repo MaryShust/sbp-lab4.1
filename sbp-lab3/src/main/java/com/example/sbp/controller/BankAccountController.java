@@ -196,15 +196,43 @@ public class BankAccountController {
                                     }
                                     """)))
     })
+    @SneakyThrows
     public ResponseEntity<?> activateDefaultBill(
             @Parameter(description = "ID аккаунта", example = "1")
             @PathVariable Long accountId,
             @Parameter(description = "Начальный баланс для активации", example = "1000")
             @RequestParam(required = true) BigDecimal startBalance
     ) {
-        bankAccountService.activateDefaultBill(accountId, startBalance);
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Дефолтный счет активирован");
-        return ResponseEntity.ok(response);
+        Map<String, Object> variables = new HashMap<>();
+        variables.putAll(securityService.getAuthVariables());
+        variables.put("targetAccountId", accountId);
+        variables.put("startBalance", startBalance);
+
+        log.info("TEST 1");
+        try {
+            ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
+                    "account-activate-process", variables);
+
+            String processInstanceId = processInstance.getId();
+
+            log.info("TEST 2");
+            accountStatusListener
+                    .waitForResult(processInstanceId)
+                    .get(60, TimeUnit.SECONDS);
+
+            log.info("TEST 3");
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Дефолтный счет активирован");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.info("TEST + " + e.getMessage());
+            log.info("TEST + " + (e.getCause() instanceof BpmnError));
+            if (e.getCause() instanceof BpmnError) {
+                BpmnError bpmnError = (BpmnError) e.getCause();
+                throw bpmnError;
+            }
+            throw new RuntimeException("Ошибка выполнения процесса", e);
+        }
     }
 }
