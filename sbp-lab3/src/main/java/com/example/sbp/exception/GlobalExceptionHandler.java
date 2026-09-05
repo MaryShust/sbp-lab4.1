@@ -103,20 +103,21 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BpmnError.class)
     public ResponseEntity<Map<String, String>> handleBpmnError(BpmnError ex) {
-        log.info("TEST 1");
+        log.info("TESTT GlobalExceptionHandler BpmnError entered");
         String errorCode = ex.getErrorCode();
         String errorMessage = ex.getMessage();
 
-        log.info("TEST 2=" + errorCode);
+        log.info("TESTT GlobalExceptionHandler errorCode=" + errorCode);
         HttpStatus status = switch (errorCode) {
             case "ACCESS_DENIED" -> HttpStatus.FORBIDDEN;
-            case "TRANSACTION_NOT_FOUND", "NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "BAD_REQUEST" -> HttpStatus.BAD_REQUEST;
+            case "TRANSACTION_NOT_FOUND", "NOT_FOUND", "BILL_NOT_FOUND", "ACCOUNT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "BAD_REQUEST", "BILL_NOT_BELONG_ACCOUNT" -> HttpStatus.BAD_REQUEST;
             case "INACTIVE" -> HttpStatus.CONFLICT;
             case "INSUFFICIENT" -> HttpStatus.PAYMENT_REQUIRED;
+            case "INTERNAL_ERROR" -> HttpStatus.INTERNAL_SERVER_ERROR;
             default -> HttpStatus.BAD_REQUEST;
         };
-        log.info("TEST 3");
+        log.info("TESTT GlobalExceptionHandler status=" + status);
 
         return ResponseEntity.status(status)
                 .body(Map.of(

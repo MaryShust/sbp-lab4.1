@@ -2,6 +2,8 @@ package com.example.sbp.controller;
 
 import com.example.sbp.dto.BankAccountRequestDTO;
 import com.example.sbp.dto.BankAccountResponseDTO;
+import com.example.sbp.listener.AccountStatusListener;
+import com.example.sbp.security.SecurityService;
 import com.example.sbp.service.BankAccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,20 +15,32 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import org.camunda.bpm.engine.RuntimeService;
+import org.camunda.bpm.engine.delegate.BpmnError;
+import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api/v1/accounts")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Accounts", description = "Управление аккаунтами пользователей")
 public class BankAccountController {
 
     private final BankAccountService bankAccountService;
+    private final SecurityService securityService;
+    private final RuntimeService runtimeService;
+    private final AccountStatusListener accountStatusListener;
 
     @PostMapping
     @PreAuthorize("hasAuthority('ACCOUNT_CREATE')")
@@ -48,17 +62,47 @@ public class BankAccountController {
                                     }
                                     """)))
     })
+    @SneakyThrows
     public ResponseEntity<?> createAccount(@Valid @RequestBody BankAccountRequestDTO bankAccountRequestDTO) {
-        BankAccountResponseDTO response = bankAccountService.createAccount(bankAccountRequestDTO);
-        Map<String, Object> result = new HashMap<>();
-        result.put("id", response.getId());
-        result.put("phoneNumber", response.getPhoneNumber());
-        result.put("defaultBillId", response.getDefaultBillId());
-        result.put("status", "created");
-        result.put("message", "Счет создан. Пополните для активации");
-        return ResponseEntity.ok(result);
+        Map<String, Object> variables = new HashMap<>();
+        variables.putAll(securityService.getAuthVariables());
+        variables.put("phoneNumber", bankAccountRequestDTO.getPhoneNumber());
+        variables.put("ownerName", bankAccountRequestDTO.getOwnerName());
+        variables.put("bankBic", bankAccountRequestDTO.getBankBic());
+
+        log.info("TEST 1");
+        try {
+            ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
+                    "account-create-process", variables);
+
+            String processInstanceId = processInstance.getId();
+
+            log.info("TEST 2");
+            Map<String, Object> resultVariables = accountStatusListener
+                    .waitForResult(processInstanceId)
+                    .get(60, TimeUnit.SECONDS);
+
+            log.info("TEST 3");
+            Map<String, Object> result = new HashMap<>();
+            result.put("id", resultVariables.get("id"));
+            result.put("phoneNumber", resultVariables.get("createdPhoneNumber"));
+            result.put("defaultBillId", resultVariables.get("defaultBillId"));
+            result.put("status", "created");
+            result.put("message", "Счет создан. Пополните для активации");
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.info("TEST + " + e.getMessage());
+            log.info("TEST + " + (e.getCause() instanceof BpmnError));
+            if (e.getCause() instanceof BpmnError) {
+                BpmnError bpmnError = (BpmnError) e.getCause();
+                throw bpmnError;
+            }
+            throw new RuntimeException("Ошибка выполнения процесса", e);
+        }
     }
 
+    @SneakyThrows
     @GetMapping("/{id}")
     @Operation(
             summary = "Получить аккаунт по ID",
@@ -73,8 +117,51 @@ public class BankAccountController {
             @Parameter(description = "ID аккаунта", example = "1")
             @PathVariable Long id
     ) {
-        BankAccountResponseDTO response = bankAccountService.getAccountById(id);
-        return ResponseEntity.ok(response);
+        // Подготовка переменных
+        Map<String, Object> variables = new HashMap<>();
+        variables.putAll(securityService.getAuthVariables());
+        variables.put("id", id);
+
+        log.info("TEST 1");
+        // Запуск процесса
+        try {
+            ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
+                    "account-info-process", variables);
+
+            String processInstanceId = processInstance.getId();
+
+            log.info("TEST 2");
+            Map<String, Object> resultVariables = accountStatusListener
+                    .waitForResult(processInstanceId)
+                    .get(60, TimeUnit.SECONDS);
+
+            log.info("TEST 3");
+            BankAccountResponseDTO response = buildResponse(resultVariables);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.info("TEST + " + e.getMessage());
+            log.info("TEST + " + (e.getCause() instanceof BpmnError));
+            if (e.getCause() instanceof BpmnError) {
+                BpmnError bpmnError = (BpmnError) e.getCause();
+                throw bpmnError;
+            }
+            throw new RuntimeException("Ошибка выполнения процесса", e);
+        }
+    }
+
+    private BankAccountResponseDTO buildResponse(Map<String, Object> variables) {
+        BankAccountResponseDTO response = new BankAccountResponseDTO();
+        response.setId((Long) variables.get("id"));
+        response.setPhoneNumber((String) variables.get("phoneNumber"));
+        response.setOwnerName((String) variables.get("ownerName"));
+        response.setBankBic((String) variables.get("bankBic"));
+        response.setIsActive((Boolean) variables.get("isActive"));
+        response.setCreatedAt((LocalDateTime) variables.get("createdAt"));
+        response.setUpdatedAt((LocalDateTime) variables.get("updatedAt"));
+        response.setDefaultBillId((Long) variables.get("defaultBillId"));
+        response.setAllBillIds((List<Long>) variables.get("allBillIds"));
+        return response;
     }
 
     @GetMapping("/phone/{phoneNumber}")
