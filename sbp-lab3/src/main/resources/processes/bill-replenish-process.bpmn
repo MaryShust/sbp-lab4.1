@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <bpmn:process id="bill-replenish-process" isExecutable="true" camunda:historyTimeToLive="30">
+
+    <bpmn:startEvent id="StartEvent_1">
+      <bpmn:outgoing>Flow_Start_To_CheckPrivilege</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:sequenceFlow id="Flow_Start_To_CheckPrivilege"
+                       sourceRef="StartEvent_1"
+                       targetRef="Activity_CheckPrivilege" />
+
+    <bpmn:serviceTask id="Activity_CheckPrivilege"
+                      name="Check Replenish Privilege"
+                      camunda:class="com.example.sbp.delegate.CheckPrivilegeReplenishBillDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_Start_To_CheckPrivilege</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckPrivilege_To_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_CheckPrivilege_To_Gateway"
+                       sourceRef="Activity_CheckPrivilege"
+                       targetRef="Gateway_AfterCheckPrivilege" />
+
+    <bpmn:exclusiveGateway id="Gateway_AfterCheckPrivilege" name="Успех?">
+      <bpmn:incoming>Flow_CheckPrivilege_To_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckPrivilege_Success</bpmn:outgoing>
+      <bpmn:outgoing>Flow_CheckPrivilege_Error</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:sequenceFlow id="Flow_CheckPrivilege_Success"
+                       sourceRef="Gateway_AfterCheckPrivilege"
+                       targetRef="Activity_ReplenishBill">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${hasPrivilege == true}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow id="Flow_CheckPrivilege_Error"
+                       sourceRef="Gateway_AfterCheckPrivilege"
+                       targetRef="ErrorEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${hasPrivilege == false}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:serviceTask id="Activity_ReplenishBill"
+                      name="Replenish Bill"
+                      camunda:class="com.example.sbp.delegate.ReplenishBillDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_CheckPrivilege_Success</bpmn:incoming>
+      <bpmn:outgoing>Flow_Replenish_To_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Replenish_To_Gateway"
+                       sourceRef="Activity_ReplenishBill"
+                       targetRef="Gateway_AfterReplenish" />
+
+    <bpmn:exclusiveGateway id="Gateway_AfterReplenish" name="Успех?">
+      <bpmn:incoming>Flow_Replenish_To_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Replenish_Success</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Replenish_Error</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:sequenceFlow id="Flow_Replenish_Success"
+                       sourceRef="Gateway_AfterReplenish"
+                       targetRef="EndEvent_Success">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${hasError == false}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow id="Flow_Replenish_Error"
+                       sourceRef="Gateway_AfterReplenish"
+                       targetRef="ErrorEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${hasError == true}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:endEvent id="EndEvent_Success">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="end"
+                                   class="com.example.sbp.listener.ReplenishListener" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Replenish_Success</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="ErrorEndEvent">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="end"
+                                   class="com.example.sbp.listener.ReplenishListener" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_CheckPrivilege_Error</bpmn:incoming>
+      <bpmn:incoming>Flow_Replenish_Error</bpmn:incoming>
+      <bpmn:errorEventDefinition errorRef="ProcessError" />
+    </bpmn:endEvent>
+
+  </bpmn:process>
+
+  <bpmn:error id="ProcessError" errorCode="PROCESS_ERROR" />
+
+</bpmn:definitions>

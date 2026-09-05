@@ -5,13 +5,14 @@ import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.ExecutionListener;
 import org.springframework.stereotype.Component;
+
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 @Slf4j
-public class BillStatusListener implements ExecutionListener {
+public class ReplenishListener implements ExecutionListener {
 
     private final Map<String, CompletableFuture<Map<String, Object>>> futures = new ConcurrentHashMap<>();
 
@@ -21,20 +22,30 @@ public class BillStatusListener implements ExecutionListener {
         return future;
     }
 
+    public CompletableFuture<Map<String, Object>> getFutureIfPresent(String processInstanceId) {
+        return futures.get(processInstanceId);
+    }
+
     @Override
     public void notify(DelegateExecution execution) throws Exception {
         String processInstanceId = execution.getProcessInstanceId();
 
         CompletableFuture<Map<String, Object>> future = futures.remove(processInstanceId);
-        if (future != null) {
-            Map<String, Object> variables = execution.getVariables();
-            if (variables.containsKey("bpmnError")) {
-                String errorCode = (String) variables.get("bpmnError");
-                String errorMessage = (String) variables.get("bpmnErrorMessage");
-                future.completeExceptionally(new BpmnError(errorCode, errorMessage));
-            } else {
-                future.complete(variables);
-            }
+        if (future == null) {
+            log.warn("TESTT ReplenishListener: no future registered for processInstanceId={}", processInstanceId);
+            return;
+        }
+
+        Map<String, Object> variables = execution.getVariables();
+        boolean hasError = Boolean.TRUE.equals(variables.get("hasError"));
+        log.info("TESTT ReplenishListener notify: processInstanceId={}, hasError={}", processInstanceId, hasError);
+
+        if (hasError) {
+            String errorCode = (String) variables.get("bpmnError");
+            String errorMessage = (String) variables.get("bpmnErrorMessage");
+            future.completeExceptionally(new BpmnError(errorCode, errorMessage));
+        } else {
+            future.complete(variables);
         }
     }
 }

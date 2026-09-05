@@ -4,6 +4,7 @@ import com.example.sbp.dto.BillCreateRequestDTO;
 import com.example.sbp.dto.BillResponseDTO;
 import com.example.sbp.exception.AccessDeniedException;
 import com.example.sbp.listener.BillStatusListener;
+import com.example.sbp.listener.ReplenishListener;
 import com.example.sbp.security.SecurityService;
 import com.example.sbp.service.BillService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.engine.RuntimeService;
+import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +28,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 @RestController
@@ -38,6 +41,7 @@ public class BillController {
     private final BillService billService;
     private final SecurityService securityService;
     private final RuntimeService runtimeService;
+    private final ReplenishListener replenishListener;
     private final BillStatusListener billStatusListener;
 
     @PostMapping
@@ -58,14 +62,43 @@ public class BillController {
                                     }
                                     """)))
     })
+    @SneakyThrows
     public ResponseEntity<?> createBill(@Valid @RequestBody BillCreateRequestDTO billDTO) {
-        BillResponseDTO response = billService.createBill(billDTO);
-        Map<String, Object> result = new HashMap<>();
-        result.put("id", response.getId());
-        result.put("accountId", response.getAccountId());
-        result.put("isActive", response.getIsActive());
-        result.put("status", "created");
-        return ResponseEntity.ok(result);
+        Map<String, Object> variables = new HashMap<>();
+        variables.putAll(securityService.getAuthVariables());
+        variables.put("targetAccountId", billDTO.getAccountId());
+
+        log.info("TEST 1");
+        try {
+            ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
+                    "bill-create-process", variables);
+
+            String processInstanceId = processInstance.getId();
+
+            log.info("TEST 2");
+            Map<String, Object> resultVariables = billStatusListener
+                    .waitForResult(processInstanceId)
+                    .get(60, TimeUnit.SECONDS);
+
+            log.info("TEST 3");
+            BillResponseDTO response = new BillResponseDTO();
+            response.setId((Long) resultVariables.get("id"));
+            response.setAccountId((Long) resultVariables.get("accountId"));
+            response.setBalance((BigDecimal) resultVariables.get("balance"));
+            response.setIsActive((Boolean) resultVariables.get("isActive"));
+            response.setCreatedAt((LocalDateTime) resultVariables.get("createdAt"));
+            response.setUpdatedAt((LocalDateTime) resultVariables.get("updatedAt"));
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.info("TEST + " + e.getMessage());
+            log.info("TEST + " + (e.getCause() instanceof BpmnError));
+            if (e.getCause() instanceof BpmnError) {
+                BpmnError bpmnError = (BpmnError) e.getCause();
+                throw bpmnError;
+            }
+            throw new RuntimeException("Ошибка выполнения процесса", e);
+        }
     }
 
     @SneakyThrows
@@ -118,6 +151,7 @@ public class BillController {
         return ResponseEntity.ok(response);
     }
 
+    @SneakyThrows
     @PostMapping("/{id}/replenish")
     @Operation(
             summary = "Пополнить счет",
@@ -138,7 +172,50 @@ public class BillController {
             @Parameter(description = "Сумма пополнения", example = "1000.50")
             @RequestBody BigDecimal amount) {
 
-        BillResponseDTO response = billService.replenishBill(accountId, id, amount);
+        // Подготовка переменных для Camunda процесса
+        Map<String, Object> variables = new HashMap<>();
+        variables.putAll(securityService.getAuthVariables());
+        variables.put("accountId", accountId);
+        variables.put("billId", id);
+        variables.put("amount", amount);
+        log.info("TESTT BillController start: processKey={}, accountId={}, billId={}, amount={}",
+                "bill-replenish-process", accountId, id, amount);
+
+        // Запуск Camunda процесса
+        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
+                "bill-replenish-process", variables);
+
+        String processInstanceId = processInstance.getId();
+        log.info("TESTT BillController process started: processInstanceId={}", processInstanceId);
+
+        // Регистрируем future ПЕРЕД ожиданием (listener может сработать уже при asyncBefore)
+        CompletableFuture<Map<String, Object>> future = replenishListener
+                .waitForResult(processInstanceId);
+
+        // Ожидание результата через Execution Listener
+        Map<String, Object> resultVariables;
+        try {
+            resultVariables = future.get(30, TimeUnit.SECONDS);
+        } catch (java.util.concurrent.TimeoutException e) {
+            log.warn("TESTT BillController timed out waiting for process result: processInstanceId={}", processInstanceId);
+            throw new RuntimeException("Превышено время ожидания выполнения процесса", e);
+        } catch (java.util.concurrent.ExecutionException e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            log.info("TESTT BillController ExecutionException cause: {}", cause, cause);
+            throw cause instanceof RuntimeException ? (RuntimeException) cause : new RuntimeException(e);
+        }
+        log.info("TESTT BillController result received: billId={}, newBalance={}",
+                resultVariables.get("billId"), resultVariables.get("balance"));
+
+        // Формирование ответа из переменных процесса
+        BillResponseDTO response = new BillResponseDTO();
+        response.setId((Long) resultVariables.get("billId"));
+        response.setAccountId((Long) resultVariables.get("accountId"));
+        response.setBalance((BigDecimal) resultVariables.get("balance"));
+        response.setIsActive((Boolean) resultVariables.get("isActive"));
+        response.setCreatedAt((LocalDateTime) resultVariables.get("createdAt"));
+        response.setUpdatedAt((LocalDateTime) resultVariables.get("updatedAt"));
+
         return ResponseEntity.ok(response);
     }
 
