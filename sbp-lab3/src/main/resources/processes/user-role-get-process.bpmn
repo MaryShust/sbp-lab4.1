@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <bpmn:process id="user-role-get-process" isExecutable="true" camunda:historyTimeToLive="30">
+
+    <bpmn:startEvent id="StartEvent_1">
+      <bpmn:outgoing>Flow_Start_To_GetRole</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:sequenceFlow id="Flow_Start_To_GetRole"
+                       sourceRef="StartEvent_1"
+                       targetRef="Activity_GetRole" />
+
+    <bpmn:serviceTask id="Activity_GetRole"
+                      name="Get User Role"
+                      camunda:class="com.example.sbp.delegate.GetUserRoleDelegate"
+                      camunda:asyncBefore="true"
+                      camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_Start_To_GetRole</bpmn:incoming>
+      <bpmn:outgoing>Flow_GetRole_To_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_GetRole_To_Gateway"
+                       sourceRef="Activity_GetRole"
+                       targetRef="Gateway_AfterGetRole" />
+
+    <bpmn:exclusiveGateway id="Gateway_AfterGetRole" name="Успех?">
+      <bpmn:incoming>Flow_GetRole_To_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_GetRole_Success</bpmn:outgoing>
+      <bpmn:outgoing>Flow_GetRole_Error</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:sequenceFlow id="Flow_GetRole_Success"
+                       sourceRef="Gateway_AfterGetRole"
+                       targetRef="EndEvent_Success">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${roleFound == true}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow id="Flow_GetRole_Error"
+                       sourceRef="Gateway_AfterGetRole"
+                       targetRef="ErrorEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+        <![CDATA[${roleFound == false}]]>
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:endEvent id="EndEvent_Success">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="end"
+                                   class="com.example.sbp.listener.AccountStatusListener" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_GetRole_Success</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="ErrorEndEvent">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="end"
+                                   class="com.example.sbp.listener.AccountStatusListener" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_GetRole_Error</bpmn:incoming>
+      <bpmn:errorEventDefinition errorRef="ProcessError" />
+    </bpmn:endEvent>
+
+  </bpmn:process>
+
+  <bpmn:error id="ProcessError" errorCode="PROCESS_ERROR" />
+
+</bpmn:definitions>
