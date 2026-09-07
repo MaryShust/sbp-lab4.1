@@ -3,6 +3,7 @@ package com.example.sbp.controller;
 import com.example.sbp.dto.BillCreateRequestDTO;
 import com.example.sbp.dto.BillResponseDTO;
 import com.example.sbp.exception.AccessDeniedException;
+import com.example.sbp.listener.BillCreateListener;
 import com.example.sbp.listener.BillStatusListener;
 import com.example.sbp.listener.ReplenishListener;
 import com.example.sbp.security.SecurityService;
@@ -43,6 +44,7 @@ public class BillController {
     private final RuntimeService runtimeService;
     private final ReplenishListener replenishListener;
     private final BillStatusListener billStatusListener;
+    private final BillCreateListener billCreateListener;
 
     @PostMapping
     @Operation(
@@ -76,7 +78,7 @@ public class BillController {
             String processInstanceId = processInstance.getId();
 
             log.info("TEST 2");
-            Map<String, Object> resultVariables = billStatusListener
+            Map<String, Object> resultVariables = billCreateListener
                     .waitForResult(processInstanceId)
                     .get(60, TimeUnit.SECONDS);
 

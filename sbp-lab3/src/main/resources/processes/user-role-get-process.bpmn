@@ -54,7 +54,7 @@
     <bpmn:endEvent id="EndEvent_Success">
       <bpmn:extensionElements>
         <camunda:executionListener event="end"
-                                   class="com.example.sbp.listener.AccountStatusListener" />
+                                   class="com.example.sbp.listener.UserRoleStatusListener" />
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_GetRole_Success</bpmn:incoming>
     </bpmn:endEvent>
@@ -62,7 +62,7 @@
     <bpmn:endEvent id="ErrorEndEvent">
       <bpmn:extensionElements>
         <camunda:executionListener event="end"
-                                   class="com.example.sbp.listener.AccountStatusListener" />
+                                   class="com.example.sbp.listener.UserRoleStatusListener" />
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_GetRole_Error</bpmn:incoming>
       <bpmn:errorEventDefinition errorRef="ProcessError" />

@@ -2,6 +2,8 @@ package com.example.sbp.controller;
 
 import com.example.sbp.dto.BankAccountRequestDTO;
 import com.example.sbp.dto.BankAccountResponseDTO;
+import com.example.sbp.listener.AccountActiveListener;
+import com.example.sbp.listener.AccountCreateListener;
 import com.example.sbp.listener.AccountStatusListener;
 import com.example.sbp.security.SecurityService;
 import com.example.sbp.service.BankAccountService;
@@ -41,6 +43,8 @@ public class BankAccountController {
     private final SecurityService securityService;
     private final RuntimeService runtimeService;
     private final AccountStatusListener accountStatusListener;
+    private final AccountActiveListener accountActiveListener;
+    private final AccountCreateListener accountCreateListener;
 
     @PostMapping
     @PreAuthorize("hasAuthority('ACCOUNT_CREATE')")
@@ -70,19 +74,19 @@ public class BankAccountController {
         variables.put("ownerName", bankAccountRequestDTO.getOwnerName());
         variables.put("bankBic", bankAccountRequestDTO.getBankBic());
 
-        log.info("TEST 1");
+        log.info("test 1");
         try {
             ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
                     "account-create-process", variables);
 
             String processInstanceId = processInstance.getId();
 
-            log.info("TEST 2");
-            Map<String, Object> resultVariables = accountStatusListener
+            log.info("test 2");
+            Map<String, Object> resultVariables = accountCreateListener
                     .waitForResult(processInstanceId)
                     .get(60, TimeUnit.SECONDS);
 
-            log.info("TEST 3");
+            log.info("test 3");
             Map<String, Object> result = new HashMap<>();
             result.put("id", resultVariables.get("id"));
             result.put("phoneNumber", resultVariables.get("createdPhoneNumber"));
@@ -92,8 +96,8 @@ public class BankAccountController {
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            log.info("TEST + " + e.getMessage());
-            log.info("TEST + " + (e.getCause() instanceof BpmnError));
+            log.info("test + " + e.getMessage());
+            log.info("test + " + (e.getCause() instanceof BpmnError));
             if (e.getCause() instanceof BpmnError) {
                 BpmnError bpmnError = (BpmnError) e.getCause();
                 throw bpmnError;
@@ -122,7 +126,7 @@ public class BankAccountController {
         variables.putAll(securityService.getAuthVariables());
         variables.put("id", id);
 
-        log.info("TEST 1");
+        log.info("test 1");
         // Запуск процесса
         try {
             ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
@@ -130,18 +134,18 @@ public class BankAccountController {
 
             String processInstanceId = processInstance.getId();
 
-            log.info("TEST 2");
+            log.info("test 2");
             Map<String, Object> resultVariables = accountStatusListener
                     .waitForResult(processInstanceId)
-                    .get(60, TimeUnit.SECONDS);
+                    .get(120, TimeUnit.SECONDS);
 
-            log.info("TEST 3");
+            log.info("test 3");
             BankAccountResponseDTO response = buildResponse(resultVariables);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.info("TEST + " + e.getMessage());
-            log.info("TEST + " + (e.getCause() instanceof BpmnError));
+            log.info("test + " + e.getMessage());
+            log.info("test + " + (e.getCause() instanceof BpmnError));
             if (e.getCause() instanceof BpmnError) {
                 BpmnError bpmnError = (BpmnError) e.getCause();
                 throw bpmnError;
@@ -208,26 +212,26 @@ public class BankAccountController {
         variables.put("targetAccountId", accountId);
         variables.put("startBalance", startBalance);
 
-        log.info("TEST 1");
+        log.info("test 1");
         try {
             ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
                     "account-activate-process", variables);
 
             String processInstanceId = processInstance.getId();
 
-            log.info("TEST 2");
-            accountStatusListener
+            log.info("test 2");
+            accountActiveListener
                     .waitForResult(processInstanceId)
                     .get(60, TimeUnit.SECONDS);
 
-            log.info("TEST 3");
+            log.info("test 3");
             Map<String, String> response = new HashMap<>();
             response.put("message", "Дефолтный счет активирован");
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.info("TEST + " + e.getMessage());
-            log.info("TEST + " + (e.getCause() instanceof BpmnError));
+            log.info("test + " + e.getMessage());
+            log.info("test + " + (e.getCause() instanceof BpmnError));
             if (e.getCause() instanceof BpmnError) {
                 BpmnError bpmnError = (BpmnError) e.getCause();
                 throw bpmnError;

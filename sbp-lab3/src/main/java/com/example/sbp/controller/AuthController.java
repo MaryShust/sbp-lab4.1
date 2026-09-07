@@ -5,6 +5,8 @@ import com.example.sbp.dto.RegisterRequestDTO;
 import com.example.sbp.dto.UpdateRoleRequestDTO;
 import com.example.sbp.dto.UserResponseDTO;
 import com.example.sbp.listener.AccountStatusListener;
+import com.example.sbp.listener.UserRoleListener;
+import com.example.sbp.listener.UserRoleStatusListener;
 import com.example.sbp.security.SecurityService;
 import com.example.sbp.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,7 +35,8 @@ public class AuthController {
     private final AuthService authService;
     private final SecurityService securityService;
     private final RuntimeService runtimeService;
-    private final AccountStatusListener accountStatusListener;
+    private final UserRoleStatusListener userRoleStatusListener;
+    private final UserRoleListener userRoleListener;
 
     @PostMapping("/login")
     @Operation(summary = "Аутентификация пользователя", description = "Аутентификация пользователя и возвращает JWT-токен. Предыдущие токены становятся недействительными.")
@@ -70,7 +73,7 @@ public class AuthController {
             String processInstanceId = processInstance.getId();
 
             log.info("TEST 2");
-            Map<String, Object> resultVariables = accountStatusListener
+            Map<String, Object> resultVariables = userRoleStatusListener
                     .waitForResult(processInstanceId)
                     .get(60, TimeUnit.SECONDS);
 
@@ -116,7 +119,7 @@ public class AuthController {
             String processInstanceId = processInstance.getId();
 
             log.info("TEST 2");
-            Map<String, Object> resultVariables = accountStatusListener
+            Map<String, Object> resultVariables = userRoleListener
                     .waitForResult(processInstanceId)
                     .get(60, TimeUnit.SECONDS);
 

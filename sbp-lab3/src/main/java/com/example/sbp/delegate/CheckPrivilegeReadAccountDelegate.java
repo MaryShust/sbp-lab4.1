@@ -17,15 +17,18 @@ public class CheckPrivilegeReadAccountDelegate implements JavaDelegate {
 
     @Override
     public void execute(DelegateExecution execution) {
+        log.info("test 1");
         Long accountId = (Long) execution.getVariable("id");
         String userName = (String) execution.getVariable("userName");
         Long currentUserAccountId = (Long) execution.getVariable("accountId");
         Set<Privilege> privileges = (Set<Privilege>) execution.getVariable("privileges");
 
+        log.info("test 2");
         if (userName != null && privileges.contains(Privilege.ACCOUNT_SUPER_READ)) {
             execution.setVariable("hasPrivilege", true);
             return;
         }
+        log.info("test 3");
 
         if (userName != null &&
                 privileges.contains(Privilege.ACCOUNT_READ) &&
@@ -36,6 +39,8 @@ public class CheckPrivilegeReadAccountDelegate implements JavaDelegate {
             execution.setVariable("hasPrivilege", true);
             return;
         }
+
+        log.info("test 4");
 
         execution.setVariable("hasPrivilege", false);
     }

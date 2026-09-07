@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -38,7 +39,7 @@ public class UpdateUserRoleDelegate implements JavaDelegate {
             execution.setVariable("username", response.getUsername());
             execution.setVariable("role", response.getRole());
             execution.setVariable("roleUpdated", true);
-        } catch (RoleNotFoundException e) {
+        } catch (UsernameNotFoundException e) {
             execution.setVariable("bpmnError", "USER_NOT_FOUND");
             execution.setVariable("bpmnErrorMessage", "Пользователь не найден: " + username);
             execution.setVariable("roleUpdated", false);
